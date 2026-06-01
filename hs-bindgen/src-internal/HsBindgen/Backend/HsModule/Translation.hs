@@ -6,7 +6,6 @@ module HsBindgen.Backend.HsModule.Translation (
     -- * Export list
   , ExportEntry(..)
   , ExportItem(..)
-  , defaultResolveExports
   , resolveDeclExports
     -- * HsModule
   , HsModule(..)
@@ -96,12 +95,6 @@ data ExportItem =
   | ExportPattern Text
     -- | Re-export a whole imported module: @module M@
   | ExportModule Hs.ModuleName
-
--- | Default export resolver: a flat list with no section headers.
---
--- Used when no extra grouping information is available.
-defaultResolveExports :: [SDecl] -> [ExportEntry]
-defaultResolveExports = map ExportEntry . concatMap resolveDeclExports
 
 {-------------------------------------------------------------------------------
   HsModule
