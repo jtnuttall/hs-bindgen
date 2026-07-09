@@ -364,7 +364,17 @@ library
     HsBindgen.TH
 
   other-modules:
+
+  -- LITHON VENDOR PATCH: re-export the internal modules lithon-codegen
+  -- consumes, so downstream depends on plain `hs-bindgen` instead of the
+  -- private `hs-bindgen:internal` sublibrary. Curated on purpose: this list
+  -- is the record of our internal-API footprint.
   reexported-modules:
+      HsBindgen.Backend
+    , HsBindgen.BindingSpec
+    , HsBindgen.Config
+    , HsBindgen.Config.MangleCandidate
+    , HsBindgen.Frontend
   other-extensions:   TemplateHaskellQuotes
 
   -- Internal dependencies
