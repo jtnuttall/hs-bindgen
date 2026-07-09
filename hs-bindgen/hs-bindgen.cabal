@@ -370,11 +370,19 @@ library
   -- private `hs-bindgen:internal` sublibrary. Curated on purpose: this list
   -- is the record of our internal-API footprint.
   reexported-modules:
-      HsBindgen.Backend
+      HsBindgen
+    , HsBindgen.ArtefactM
+    , HsBindgen.Backend
+    , HsBindgen.Backend.Category
     , HsBindgen.BindingSpec
     , HsBindgen.Config
+    , HsBindgen.Config.ClangArgs
     , HsBindgen.Config.MangleCandidate
     , HsBindgen.Frontend
+    , HsBindgen.Frontend.Analysis.IncludeGraph
+    , HsBindgen.Frontend.Predicate
+    , HsBindgen.TraceMsg
+    , HsBindgen.Util.Tracer
   other-extensions:   TemplateHaskellQuotes
 
   -- Internal dependencies
