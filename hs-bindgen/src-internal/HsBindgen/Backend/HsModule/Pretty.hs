@@ -97,11 +97,15 @@ prettyExportList qualPrefix entries =
         in  ((PP.string prefix >< prettyExportItem qualPrefix item) : rd, nc)
 
 -- | Pretty-print a single export item, qualified with the module name
+--
+-- Module re-exports are not qualified: they name the re-exported module
+-- itself.
 prettyExportItem :: String -> ExportItem -> CtxDoc
 prettyExportItem q = \case
     ExportTypeAll s -> PP.string q >< PP.text s >< "(..)"
     ExportName s    -> PP.string q >< PP.text s
     ExportPattern s -> "pattern" <+> (PP.string q >< PP.text s)
+    ExportModule m  -> "module" <+> PP.string (Hs.moduleNameToString m)
 
 {-------------------------------------------------------------------------------
   GhcPragma pretty-printing

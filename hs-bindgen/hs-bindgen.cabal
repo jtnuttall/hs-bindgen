@@ -374,13 +374,26 @@ library
     , HsBindgen.ArtefactM
     , HsBindgen.Backend
     , HsBindgen.Backend.Category
+    , HsBindgen.Backend.Global
+    , HsBindgen.Backend.Hs.AST
+    , HsBindgen.Backend.Hs.Haddock.Documentation
+    , HsBindgen.Backend.Hs.Name
+    , HsBindgen.Backend.Hs.Origin
+    , HsBindgen.Backend.HsModule.Render
+    , HsBindgen.Backend.HsModule.Translation
+    , HsBindgen.Backend.SHs.AST
+    , HsBindgen.Backend.SHs.Translation
     , HsBindgen.BindingSpec
     , HsBindgen.Config
     , HsBindgen.Config.ClangArgs
     , HsBindgen.Config.MangleCandidate
     , HsBindgen.Frontend
     , HsBindgen.Frontend.Analysis.IncludeGraph
+    , HsBindgen.Frontend.Pass.Final
     , HsBindgen.Frontend.Predicate
+    , HsBindgen.IR.C
+    , HsBindgen.IR.Translation
+    , HsBindgen.Language.Haskell
     , HsBindgen.TraceMsg
     , HsBindgen.Util.Tracer
   other-extensions:   TemplateHaskellQuotes

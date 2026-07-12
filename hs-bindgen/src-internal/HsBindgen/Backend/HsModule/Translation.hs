@@ -13,6 +13,9 @@ module HsBindgen.Backend.HsModule.Translation (
     -- * Translation
   , translateModuleMultiple
   , translateModuleSingle
+    -- * Resolution building blocks
+  , resolveImports
+  , resolvePragmas
   ) where
 
 import Data.Foldable qualified as Foldable
@@ -91,6 +94,8 @@ data ExportItem =
   | ExportName Text
     -- | Export a pattern synonym: @pattern PatName@
   | ExportPattern Text
+    -- | Re-export a whole imported module: @module M@
+  | ExportModule Hs.ModuleName
 
 -- | Default export resolver: a flat list with no section headers.
 --
