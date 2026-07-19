@@ -352,23 +352,14 @@ library
   hs-source-dirs:     src
   exposed-modules:
     HsBindgen.Macro
-    HsBindgen.Macro.CExpr
-    HsBindgen.Macro.Global
-    HsBindgen.Macro.Parse
-    HsBindgen.Macro.Resolution
-    HsBindgen.Macro.Translation.Type
-    HsBindgen.Macro.Translation.Value
-    HsBindgen.Macro.Typecheck
     HsBindgen.TH
-
-  other-modules:
 
   -- LITHON VENDOR PATCH: re-export the internal modules lithon-codegen
   -- consumes, so downstream depends on plain `hs-bindgen` instead of the
   -- private `hs-bindgen:internal` sublibrary. Curated on purpose: this list
   -- is the record of our internal-API footprint.
   reexported-modules:
-      HsBindgen
+    , HsBindgen
     , HsBindgen.ArtefactM
     , HsBindgen.Backend
     , HsBindgen.Backend.Category
@@ -394,6 +385,15 @@ library
     , HsBindgen.Language.Haskell
     , HsBindgen.TraceMsg
     , HsBindgen.Util.Tracer
+    , HsBindgen.Internal.Macro
+    , HsBindgen.Internal.Macro.CExpr
+    , HsBindgen.Internal.Macro.Global
+    , HsBindgen.Internal.Macro.Parse
+    , HsBindgen.Internal.Macro.Resolution
+    , HsBindgen.Internal.Macro.Translation.Type
+    , HsBindgen.Internal.Macro.Translation.Value
+    , HsBindgen.Internal.Macro.Typecheck
+
   other-extensions:   TemplateHaskellQuotes
 
   -- Internal dependencies
