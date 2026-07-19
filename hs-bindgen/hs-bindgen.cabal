@@ -354,6 +354,16 @@ library
     HsBindgen.Macro
     HsBindgen.TH
 
+  other-modules:
+    HsBindgen.Internal.Macro
+    HsBindgen.Internal.Macro.CExpr
+    HsBindgen.Internal.Macro.Global
+    HsBindgen.Internal.Macro.Parse
+    HsBindgen.Internal.Macro.Resolution
+    HsBindgen.Internal.Macro.Translation.Type
+    HsBindgen.Internal.Macro.Translation.Value
+    HsBindgen.Internal.Macro.Typecheck
+
   -- LITHON VENDOR PATCH: re-export the internal modules lithon-codegen
   -- consumes, so downstream depends on plain `hs-bindgen` instead of the
   -- private `hs-bindgen:internal` sublibrary. Curated on purpose: this list
@@ -385,18 +395,6 @@ library
     , HsBindgen.Language.Haskell
     , HsBindgen.TraceMsg
     , HsBindgen.Util.Tracer
-    , HsBindgen.Internal.Macro
-    , HsBindgen.Internal.Macro.CExpr
-    , HsBindgen.Internal.Macro.Global
-    , HsBindgen.Internal.Macro.Parse
-    , HsBindgen.Internal.Macro.Resolution
-    , HsBindgen.Internal.Macro.Translation.Type
-    , HsBindgen.Internal.Macro.Translation.Value
-    , HsBindgen.Internal.Macro.Typecheck
-    , HsBindgen.BindingSpec
-    , HsBindgen.Config
-    , HsBindgen.Config.MangleCandidate
-    , HsBindgen.Frontend
 
   other-extensions:   TemplateHaskellQuotes
 
