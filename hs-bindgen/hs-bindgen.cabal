@@ -393,6 +393,10 @@ library
     , HsBindgen.Internal.Macro.Translation.Type
     , HsBindgen.Internal.Macro.Translation.Value
     , HsBindgen.Internal.Macro.Typecheck
+    , HsBindgen.BindingSpec
+    , HsBindgen.Config
+    , HsBindgen.Config.MangleCandidate
+    , HsBindgen.Frontend
 
   other-extensions:   TemplateHaskellQuotes
 
