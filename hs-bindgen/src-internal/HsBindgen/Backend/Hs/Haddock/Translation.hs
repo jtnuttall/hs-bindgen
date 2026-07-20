@@ -4,6 +4,7 @@ module HsBindgen.Backend.Hs.Haddock.Translation (
     mkHaddocks
   , mkHaddocksFieldInfo
   , mkHaddocksDecorateParams
+  , peelCategoryComment
   ) where
 
 import Data.Text qualified as Text
@@ -184,6 +185,78 @@ addFunctionParameterComment mbName fp =
             )
 
 {-------------------------------------------------------------------------------
+  Category overview peeling
+-------------------------------------------------------------------------------}
+
+-- | Split an SDL-style category overview off the first declaration.
+--
+-- SDL headers open with a file-level comment (@\/** # CategoryInit ... *\/@)
+-- that doxygen cannot attach to the file: it fuses the whole block into the
+-- first declaration's detailed description, where the markdown heading
+-- surfaces as a @\<sect1\>@ whose title is the @CategoryX@ marker. Detection
+-- is purely structural: the first detailed block of the first declaration's
+-- comment must be a @sect1@ tag whose title text matches
+-- @^Category[A-Za-z0-9_]+$@ — no prose heuristics.
+--
+-- The peeled overview (minus the @CategoryX@ title, with the first simple
+-- paragraph promoted to the comment title so it renders as the Haddock
+-- module description) is returned alongside the declarations with that
+-- block removed. Note that doxygen may have fused the tail of the first
+-- declaration's own documentation into the section; the fusion is not
+-- recoverable, so such text moves to the module comment with the overview.
+--
+-- Callers must apply both halves consistently: the backend translates the
+-- peeled declarations, and module translation receives the module comment.
+peelCategoryComment ::
+     [C.Decl l Final]
+  -> (Maybe HsDoc.Comment, [C.Decl l Final])
+peelCategoryComment = \case
+    decl : decls
+      | Just (C.Comment doxy) <- decl.info.comment
+      , Doxy.Tag "sect1" (titleBlock : overview) : rest <- doxy.detailed
+      , isCategoryTitle titleBlock ->
+          let comment' = case (doxy.brief, rest) of
+                ([], []) -> Nothing
+                _        -> Just (C.Comment doxy{Doxy.detailed = rest})
+          in  ( Just $ overviewComment overview
+              , (decl & #info % #comment .~ comment') : decls
+              )
+    decls -> (Nothing, decls)
+  where
+    -- The @<sect1>@ title as parsed by doxygen-parser: a @title@ tag holding
+    -- one paragraph of plain text, the category marker.
+    isCategoryTitle :: Doxy.Block (C.CommentRef Final) -> Bool
+    isCategoryTitle = \case
+      Doxy.Tag "title" [Doxy.Paragraph [Doxy.Text t]] -> isCategoryMarker (Text.strip t)
+      _                                               -> False
+
+    isCategoryMarker :: Text -> Bool
+    isCategoryMarker t = case Text.stripPrefix "Category" t of
+      Just rest -> not (Text.null rest) && Text.all isMarkerChar rest
+      Nothing   -> False
+
+    isMarkerChar :: Char -> Bool
+    isMarkerChar c =
+         ('A' <= c && c <= 'Z')
+      || ('a' <= c && c <= 'z')
+      || ('0' <= c && c <= '9')
+      || c == '_'
+
+    -- Same promotion as 'mkHaddocksWithArgs': the first simple paragraph
+    -- becomes the title, which the pretty-printer renders on the @{-|@ line
+    -- (Haddock's module description).
+    overviewComment :: [Doxy.Block (C.CommentRef Final)] -> HsDoc.Comment
+    overviewComment blocks = case concatMap convertBlock blocks of
+      HsDoc.Paragraph inlines : rest
+        | all isSimpleInline inlines ->
+            mempty
+              & #title    .~ Just inlines
+              & #children .~ rest
+      children ->
+            mempty
+              & #children .~ children
+
+{-------------------------------------------------------------------------------
   Block content conversion
 
   Doxy.Block maps directly to HsDoc.CommentBlockContent.  No string matching
@@ -229,7 +302,14 @@ convertSimpleSect kind blocks =
           SSWarning    -> prefixed "WARNING:" content
           SSNote       -> prefixed "Note:" content
           SSSee        -> prefixed "See:" content
-          SSSince      -> [HsDoc.Paragraph [HsDoc.Metadata (HsDoc.Since (extractText blocks))]]
+          SSSince      ->
+            -- Haddock's @since expects a bare version token; prose like
+            -- "This function is available since SDL 3.2.0." renders as
+            -- garbage there. Extract the version when present, otherwise
+            -- fall back to an ordinary bold "Since:" line.
+            case findVersionToken (extractText blocks) of
+              Just ver -> [HsDoc.Paragraph [HsDoc.Metadata (HsDoc.Since ver)]]
+              Nothing  -> prefixed "Since:" content
           SSVersion    -> prefixed "Version:" content
           SSPre        -> prefixed "Precondition:" content
           SSPost       -> prefixed "Postcondition:" content
@@ -250,6 +330,23 @@ convertSimpleSect kind blocks =
 
         inlineText (Doxy.Text t) = t
         inlineText _            = ""
+
+    -- First whitespace-separated token shaped like a version: digit
+    -- groups joined by dots (at least one dot), trailing sentence
+    -- punctuation dropped ("3.2.0." -> "3.2.0").
+    findVersionToken :: Text -> Maybe Text
+    findVersionToken t =
+        case filter isVersion (map trim (Text.words t)) of
+          (v : _) -> Just v
+          []      -> Nothing
+      where
+        trim = Text.dropWhileEnd (== '.')
+        digit c = c >= '0' && c <= '9'
+        isVersion w =
+             Text.elem '.' w
+          && Text.all (\c -> digit c || c == '.') w
+          && all (\g -> not (Text.null g) && Text.all digit g)
+                 (Text.splitOn "." w)
 
 -- | Check if an inline content element is simple enough to promote to a title
 isSimpleInline :: HsDoc.CommentInlineContent -> Bool

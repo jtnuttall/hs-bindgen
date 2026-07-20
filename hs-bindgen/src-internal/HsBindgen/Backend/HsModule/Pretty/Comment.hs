@@ -97,7 +97,7 @@ instance Pretty CommentKind where
         firstContent =
           case comment.title of
             Nothing -> PP.empty
-            Just ct -> PP.hsep (map pretty ct)
+            Just ct -> joinInlines ct
         singleLineStart =
           case commentKind of
             TopLevelComment _          -> "-- |"
@@ -168,12 +168,10 @@ prettyMainHeaders info =
 
 instance Pretty HsDoc.CommentBlockContent where
   pretty = \case
-    HsDoc.Paragraph{..}      -> PP.hsep
-                              . map pretty
-                              $ paragraphContent
+    HsDoc.Paragraph{..}      -> joinInlines paragraphContent
     HsDoc.CodeBlock{..}      -> PP.vcat
                               $ ["@"]
-                             ++ map PP.text codeBlockLines
+                             ++ map (PP.text . escapeMidLine) codeBlockLines
                              ++ ["@"]
     HsDoc.Verbatim{..}       -> ">" <+> PP.text verbatimContent
     HsDoc.Example{..}        -> ">>>" <+> PP.text exampleContent
@@ -189,19 +187,19 @@ instance Pretty HsDoc.CommentBlockContent where
                              >< "]:"
                             <+> PP.vcat (map pretty definitionListContent)
     HsDoc.Header{..}         -> PP.string (replicate (fromEnum headerLevel) '=')
-                            <+> (PP.hsep $ map pretty headerContent)
+                            <+> joinInlines headerContent
 
 
 instance Pretty HsDoc.CommentInlineContent where
   pretty = \case
-    HsDoc.TextContent{..}   -> PP.text textContent
-    HsDoc.Monospace{..}     -> "@" >< PP.hsep (map pretty monospaceContent) >< "@"
-    HsDoc.Emph{..}          -> "/" >< PP.hsep (map pretty emphContent) >< "/"
-    HsDoc.Bold{..}          -> "__" >< PP.hsep (map pretty boldContent) >< "__"
+    HsDoc.TextContent{..}   -> PP.text (escapeMidLine textContent)
+    HsDoc.Monospace{..}     -> "@" >< joinInlines monospaceContent >< "@"
+    HsDoc.Emph{..}          -> "/" >< joinInlines emphContent >< "/"
+    HsDoc.Bold{..}          -> "__" >< joinInlines boldContent >< "__"
     HsDoc.Module{..}        -> "\"" >< PP.text moduleContent >< "\""
     HsDoc.Identifier{..}    -> "'" >< PP.text identifierContent >< "'"
     HsDoc.Type{..}          -> "t'" >< PP.text typeContent
-    HsDoc.Link{..}          -> "[" >< PP.hsep (map pretty linkLabel) >< "]"
+    HsDoc.Link{..}          -> "[" >< joinInlines linkLabel >< "]"
                             >< "(" >< PP.text linkURL >< ")"
     HsDoc.URL{..}           -> "<" >< PP.text urlContent >< ">"
     HsDoc.Anchor{..}        -> "#" >< PP.text anchorContent >< "#"
@@ -215,6 +213,34 @@ instance Pretty HsDoc.CommentMeta where
 {-------------------------------------------------------------------------------
   Auxiliary functions
 -------------------------------------------------------------------------------}
+
+-- | Join inline content with 'PP.hsep' spacing, except that text nodes
+-- beginning with closing punctuation attach directly to the previous
+-- element. The translation layer strips whitespace from text nodes, so
+-- without this @[Monospace \"SDL_Init()\", Text \".\"]@ would render as
+-- @\"\@SDL_Init()\@ .\"@ — a floating period.
+joinInlines :: [HsDoc.CommentInlineContent] -> CtxDoc
+joinInlines = \case
+    []     -> PP.hsep []
+    x : xs -> snd (List.foldl' step (x, pretty x) xs)
+  where
+    step (prev, acc) nxt
+      | punctuationLead nxt || openTail prev = (nxt, acc >< pretty nxt)
+      | otherwise                            = (nxt, acc <+> pretty nxt)
+
+    punctuationLead = \case
+      HsDoc.TextContent t ->
+        case Text.uncons t of
+          Just (c, _) -> c `elem` (".,;:!?)]}" :: String)
+          Nothing     -> False
+      _ -> False
+
+    openTail = \case
+      HsDoc.TextContent t ->
+        case Text.unsnoc t of
+          Just (_, c) -> c `elem` ("([{" :: String)
+          Nothing     -> False
+      _ -> False
 
 -- | Escape Haddock special characters in mid-line content
 --
