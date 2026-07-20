@@ -8,6 +8,7 @@ import HsBindgen.Backend.Category
 import HsBindgen.Backend.Category.ApplyChoice
 import HsBindgen.Backend.Hs.AST qualified as Hs
 import HsBindgen.Backend.Hs.CallConv
+import HsBindgen.Backend.Hs.Haddock.Translation (peelCategoryComment)
 import HsBindgen.Backend.Hs.Translation qualified as Hs
 import HsBindgen.Backend.SHs.AST qualified as SHs
 import HsBindgen.Backend.SHs.Simplify qualified as SHs
@@ -45,8 +46,11 @@ runBackend tracer config boot frontend = do
       let declIndex :: DeclIndex l
           declIndex = final.meta.declIndex
 
+          -- Strip the SDL-style category overview from the first
+          -- declaration's comment; module translation re-attaches it as the
+          -- module comment (see @getModuleComment@ in "HsBindgen").
           cDecls :: [C.Decl l Final]
-          cDecls = final.decls
+          cDecls = snd $ peelCategoryComment final.decls
       pure $ Hs.generateDeclarations
         macroLang
         config.backend.uniqueId

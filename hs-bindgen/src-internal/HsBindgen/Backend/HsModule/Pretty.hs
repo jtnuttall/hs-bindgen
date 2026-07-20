@@ -11,7 +11,7 @@ import Text.SimplePrettyPrint (CtxDoc, Pretty (..), ($$), (<+>), (><))
 import Text.SimplePrettyPrint qualified as PP
 
 import HsBindgen.Backend.HsModule.Pretty.CAPI
-import HsBindgen.Backend.HsModule.Pretty.Comment ()
+import HsBindgen.Backend.HsModule.Pretty.Comment (CommentKind (..))
 import HsBindgen.Backend.HsModule.Pretty.Decl ()
 import HsBindgen.Backend.HsModule.Translation
 import HsBindgen.Config.Prelims
@@ -22,12 +22,14 @@ import HsBindgen.Language.Haskell qualified as Hs
 -------------------------------------------------------------------------------}
 
 instance Pretty HsModule where
-  pretty hsModule = PP.vsep $
-      PP.vcat (map pretty hsModule.pragmas)
-    : prettyModuleHeader hsModule.name hsModule.exports
-    : PP.vcat (map (prettyImport hsModule.qualifiedStyle) hsModule.imports)
-    : (prettyCapiWrappers hsModule.cWrappers)
-    : map pretty hsModule.decls
+  pretty hsModule = PP.vsep $ concat [
+      [ PP.vcat (map pretty hsModule.pragmas) ]
+    , [ pretty (TopLevelComment c) | Just c <- [hsModule.moduleComment] ]
+    , [ prettyModuleHeader hsModule.name hsModule.exports ]
+    , [ PP.vcat (map (prettyImport hsModule.qualifiedStyle) hsModule.imports) ]
+    , [ prettyCapiWrappers hsModule.cWrappers ]
+    , map pretty hsModule.decls
+    ]
 
 -- | Render the module header with an explicit export list
 --

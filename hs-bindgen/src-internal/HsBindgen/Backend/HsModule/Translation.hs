@@ -103,6 +103,10 @@ data ExportItem =
 -- | Haskell module
 data HsModule = HsModule {
       pragmas        :: [GhcPragma]
+      -- | Module-level Haddock comment, rendered between the pragmas and the
+      -- @module@ line (e.g. the SDL category overview peeled off the first
+      -- declaration; see 'HsBindgen.Backend.Hs.Haddock.Translation.peelCategoryComment').
+    , moduleComment  :: Maybe HsDoc.Comment
     , name           ::  Hs.ModuleName
     , exports        :: [ExportEntry]
     , imports        :: [ImportListItem]
@@ -119,26 +123,33 @@ translateModuleMultiple ::
      FieldNamingStrategy
   -> ModuleRenderConfig
   -> BaseModuleName
+  -> Maybe HsDoc.Comment
+     -- ^ Module comment; lands only on the base (types) category module
   -> ([SDecl] -> [ExportEntry])
   -> ByCategory_ ([CWrapper], [SDecl])
   -> ByCategory_ (Maybe HsModule)
-translateModuleMultiple fns mrc moduleBaseName resolveExports declsByCat =
+translateModuleMultiple fns mrc moduleBaseName moduleComment resolveExports declsByCat =
     mapWithCategory_ go declsByCat
   where
     go :: Category -> ([CWrapper], [SDecl]) -> Maybe HsModule
     go _ ([], []) = Nothing
     go cat xs     = Just $
-      translateModule' fns mrc (Just cat) moduleBaseName resolveExports xs
+      translateModule' fns mrc (Just cat) moduleBaseName (mdocFor cat) resolveExports xs
+
+    mdocFor :: Category -> Maybe HsDoc.Comment
+    mdocFor CType = moduleComment
+    mdocFor _     = Nothing
 
 translateModuleSingle ::
      FieldNamingStrategy
   -> ModuleRenderConfig
   -> BaseModuleName
+  -> Maybe HsDoc.Comment
   -> ([SDecl] -> [ExportEntry])
   -> ByCategory_ ([CWrapper], [SDecl])
   -> HsModule
-translateModuleSingle fns mrc name resolveExports declsByCat =
-    translateModule' fns mrc Nothing name resolveExports $
+translateModuleSingle fns mrc name moduleComment resolveExports declsByCat =
+    translateModule' fns mrc Nothing name moduleComment resolveExports $
       Foldable.fold declsByCat
 
 translateModule' ::
@@ -146,12 +157,14 @@ translateModule' ::
   -> ModuleRenderConfig
   -> Maybe Category
   -> BaseModuleName
+  -> Maybe HsDoc.Comment
   -> ([SDecl] -> [ExportEntry])
   -> ([CWrapper], [SDecl])
   -> HsModule
-translateModule' fns mrc mcat moduleBaseName resolveExports (cWrappers, decs) =
+translateModule' fns mrc mcat moduleBaseName moduleComment resolveExports (cWrappers, decs) =
     HsModule{
         pragmas        = resolvePragmas fns mrc.qualifiedStyle cWrappers decs
+      , moduleComment  = moduleComment
       , exports        = resolveExports decs
       , imports        = resolveImports moduleBaseName mcat cWrappers decs
       , name           = fromBaseModuleName moduleBaseName mcat

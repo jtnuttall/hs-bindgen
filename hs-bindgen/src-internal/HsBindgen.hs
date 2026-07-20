@@ -53,6 +53,8 @@ import HsBindgen.Artefact
 import HsBindgen.ArtefactM
 import HsBindgen.Backend
 import HsBindgen.Backend.Category
+import HsBindgen.Backend.Hs.Haddock.Documentation qualified as HsDoc
+import HsBindgen.Backend.Hs.Haddock.Translation (peelCategoryComment)
 import HsBindgen.Backend.HsModule.Render
 import HsBindgen.Backend.HsModule.Translation
 import HsBindgen.Backend.HsModule.Translation.Doxygen (ExportTags,
@@ -231,11 +233,12 @@ getBindings mrc = do
     name   <- ModuleBaseName
     decls  <- FinalDecls
     tags   <- getExportTags
+    mdoc   <- getModuleComment
     when (all nullDecls decls) $ EmitTrace $ NoBindingsSingleModule name
     config <- getConfig
     let fns = config.frontend.fieldNamingStrategy
     pure $ render $
-      translateModuleSingle fns mrc name (resolveExports tags) decls
+      translateModuleSingle fns mrc name mdoc (resolveExports tags) decls
 
 -- | Write bindings to file.
 writeBindings ::
@@ -280,12 +283,13 @@ getBindingsMultiple mrc = do
     name   <- ModuleBaseName
     decls  <- FinalDecls
     tags   <- getExportTags
+    mdoc   <- getModuleComment
     when (all nullDecls decls) $
       EmitTrace $ NoBindingsMultipleModules name
     config <- getConfig
     let fns = config.frontend.fieldNamingStrategy
     pure $ fmap render <$>
-      translateModuleMultiple fns mrc name (resolveExports tags) decls
+      translateModuleMultiple fns mrc name mdoc (resolveExports tags) decls
 
 -- | Write bindings to files in provided output directory.
 --
@@ -452,6 +456,21 @@ getExportTags = do
     doxy  <- DoxygenA
     final <- FrontendPassA FinalPass
     pure $ computeExportTags doxy final.decls
+
+{-------------------------------------------------------------------------------
+  Module comment
+-------------------------------------------------------------------------------}
+
+-- | Extract the module comment from the final C declarations.
+--
+-- This is the extraction half of 'peelCategoryComment': the backend strips
+-- the same overview block from the first declaration before translating it
+-- (see "HsBindgen.Backend"), and module translation places this comment on
+-- the base (types) module.
+getModuleComment :: Artefact l (Maybe HsDoc.Comment)
+getModuleComment = do
+    final <- FrontendPassA FinalPass
+    pure $ fst $ peelCategoryComment final.decls
 
 {-------------------------------------------------------------------------------
   Errors
