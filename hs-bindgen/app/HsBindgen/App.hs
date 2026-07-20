@@ -199,6 +199,7 @@ parseConfig = Config
     <*> parseSelectionPredicate
     <*> parseProgramSlicing
     <*> parseFieldNamingStrategy
+    <*> pure defaultDoxygenConfig
     <*> parsePathStyle
 
 {-------------------------------------------------------------------------------

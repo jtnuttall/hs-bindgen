@@ -8,6 +8,7 @@ module HsBindgen.Config (
   , QualifiedStyle(..)
   , ModuleRenderConfig(..)
   , toBindgenConfig
+  , defaultDoxygenConfig
     -- * Template Haskell
   , ConfigTH(..)
   )
@@ -24,7 +25,7 @@ import HsBindgen.Imports
 import HsBindgen.TraceMsg
 import HsBindgen.Util.Tracer
 
-import Doxygen.Parser (defaultConfig)
+import Doxygen.Parser qualified as Doxygen
 
 {-------------------------------------------------------------------------------
   Common
@@ -43,13 +44,31 @@ data Config_ path = Config {
   , selectionPredicate  :: Boolean SelectionPredicate
   , programSlicing      :: ProgramSlicing
   , fieldNamingStrategy :: FieldNamingStrategy
+  , doxygenConfig       :: Doxygen.Config
 
     -- * Backend
   , haddockPathStyle :: PathStyle
   }
   deriving stock (Eq, Show, Generic)
   deriving stock (Functor, Foldable, Traversable)
-  deriving anyclass (Default)
+
+-- | Re-exported default for consumers (e.g. the CLI's option parser) that
+-- construct 'Config_' without a direct doxygen-parser dependency.
+defaultDoxygenConfig :: Doxygen.Config
+defaultDoxygenConfig = Doxygen.defaultConfig
+
+-- Manual instance: 'Doxygen.Config' has no 'Default' instance to derive
+-- through (its default is 'Doxygen.defaultConfig').
+instance Default (Config_ path) where
+  def = Config {
+      clang               = def
+    , bindingSpec         = def
+    , selectionPredicate  = def
+    , programSlicing      = def
+    , fieldNamingStrategy = def
+    , doxygenConfig       = Doxygen.defaultConfig
+    , haddockPathStyle    = def
+    }
 
 toBindgenConfig ::
      Config_ FilePath
@@ -68,7 +87,7 @@ toBindgenConfig config uniqueId baseModuleName choice =
           selectionPredicate  = config.selectionPredicate
         , programSlicing      = config.programSlicing
         , fieldNamingStrategy = config.fieldNamingStrategy
-        , doxygenConfig       = defaultConfig
+        , doxygenConfig       = config.doxygenConfig
         }
     , backend = BackendConfig {
           uniqueId       = uniqueId
