@@ -379,6 +379,7 @@ library
     , HsBindgen.Backend.Hs.Name
     , HsBindgen.Backend.Hs.Origin
     , HsBindgen.Backend.HsModule.Render
+    , HsBindgen.Backend.Level
     , HsBindgen.Backend.HsModule.Translation
     , HsBindgen.Backend.SHs.AST
     , HsBindgen.Backend.SHs.Translation
@@ -393,6 +394,7 @@ library
     , HsBindgen.IR.C
     , HsBindgen.IR.Translation
     , HsBindgen.Language.Haskell
+    , HsBindgen.NameHint
     , HsBindgen.TraceMsg
     , HsBindgen.Util.Tracer
 
