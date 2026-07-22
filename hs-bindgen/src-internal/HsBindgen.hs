@@ -24,6 +24,7 @@ module HsBindgen (
   , getDeclUseGraph
   , getOmittedTypes
   , getReifiedC
+  , getModuleComment
   , getSquashedTypes
   , getDependencies
   , getGetMainHeaders
