@@ -72,21 +72,46 @@ instance Pretty CommentKind where
         indentation = length commentStart + 1
         -- Separate user-facing metadata (for documentation) from internal metadata.
         -- Only user-facing metadata should trigger Haddock comment syntax.
-        userFacingMetadata = catMaybes [
-            (\n -> "__C declaration:__ @"
-                >< PP.text (escapeMidLine n)
-                >< "@") <$> comment.origin
-          , (\lit -> "__C literal:__ @"
-                >< PP.text (escapeMidLine lit)
-                >< "@") <$> comment.literal
-          , (\p -> "__defined at:__ @"
-                >< uncurry prettyHashIncludeArgLoc p
-                >< "@"
-            ) <$> (liftA2 (,) comment.headerInfo comment.location)
-          , (\hinfo -> "__exported by:__ @"
-                    >< prettyMainHeaders hinfo
-                    >< "@") <$> comment.headerInfo
-          ]
+        --
+        -- The C-provenance facts render as ONE quiet definition-list row
+        -- instead of a bold-labelled line per fact; "exported by" appears
+        -- only when the exporting header differs from the defining one,
+        -- and a recorded macro literal rides the same row.
+        userFacingMetadata
+          | originShownByTerm = []
+          | otherwise         = catMaybes [combinedProvenance]
+
+        -- A comment whose body already leads with the name-as-term
+        -- definition item ([@name@]: …) states the C name in the term
+        -- itself — the provenance row would only repeat it. This is the
+        -- shape of every matched function-parameter comment.
+        originShownByTerm = case (comment.origin, comment.children) of
+          (Just o, HsDoc.DefinitionList (HsDoc.Monospace [HsDoc.TextContent t]) _ : _) ->
+            t == o
+          _ -> False
+
+        combinedProvenance = case (comment.origin, comment.literal) of
+            (Just n, mLit) -> Just $ assemble
+              ("[C declaration]: @" >< PP.text (escapeMidLine n) >< "@")
+              [literalSuffix lit | Just lit <- [mLit]]
+            (Nothing, Just lit) -> Just $ assemble
+              ("[C literal]: @" >< PP.text (escapeMidLine lit) >< "@")
+              []
+            (Nothing, Nothing) -> Nothing
+          where
+            literalSuffix lit = ", literal @" >< PP.text (escapeMidLine lit) >< "@"
+            assemble core suffixes =
+              foldl (><) core (suffixes ++ definedPart ++ exportedPart)
+            definedPart =
+              [ ", defined at @" >< uncurry prettyHashIncludeArgLoc p >< "@"
+              | Just p <- [liftA2 (,) comment.headerInfo comment.location]
+              ]
+            exportedPart =
+              [ ", exported by @" >< prettyMainHeaders hinfo >< "@"
+              | Just hinfo <- [comment.headerInfo]
+              , map (.path) (NonEmpty.toList hinfo.mainHeaders)
+                  /= [hinfo.includeArg.path]
+              ]
         internalMetadata = catMaybes [
             (\u -> "__unique:__ @"
                >< PP.string u.source

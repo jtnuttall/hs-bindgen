@@ -124,9 +124,12 @@ mkHaddocksWithArgs HaddockConfig{..} info Args{comment = Just (C.Comment Doxy.Co
                     $ params
 
       -- Convert detailed blocks to Haddock content.
-      -- Matched params are kept so they appear in both the function-level
-      -- comment and in individual parameter comments.
-      commentChildren = concatMap convertBlock detailed
+      -- Matched params render on the arguments themselves; keeping a body
+      -- copy too would duplicate every entry, so the body keeps only the
+      -- UNMATCHED ones (typedef'd callback params, parse strays), which
+      -- have nowhere else to appear. Adjacent \sa sections coalesce into
+      -- one "See also" item first.
+      commentChildren = concatMap convertBlock (coalesceSees (mapMaybe dropMatchedParams detailed))
 
       -- When doxygen puts all text in detailed (e.g. inline enum comments
       -- like /**< Red color */), promote the first simple paragraph to title.
@@ -145,15 +148,30 @@ mkHaddocksWithArgs HaddockConfig{..} info Args{comment = Just (C.Comment Doxy.Co
       , updatedParams
       )
   where
+    -- One predicate for both the extraction into per-argument comments and
+    -- the body-side drop: whatever is extracted is exactly what the body
+    -- omits, so the two can never disagree about where a param doc lives.
+    isMatchedParam :: Doxy.Param (C.CommentRef Final) -> Bool
+    isMatchedParam p = any ((== Just p.paramName) . fst) params
+
     -- Extract @param entries from detailed blocks that match provided parameters
     extractMatchedParams :: [Doxy.Block (C.CommentRef Final)]
                          -> [Doxy.Param (C.CommentRef Final)]
     extractMatchedParams [] = []
     extractMatchedParams (Doxy.ParamList ParamListParam ps : rest) =
-        filter isMatch ps ++ extractMatchedParams rest
-      where
-        isMatch p = any ((== Just p.paramName) . fst) params
+        filter isMatchedParam ps ++ extractMatchedParams rest
     extractMatchedParams (_ : rest) = extractMatchedParams rest
+
+    -- Drop matched params from a body block; a param list whose every
+    -- entry moved onto an argument disappears entirely.
+    dropMatchedParams :: Doxy.Block (C.CommentRef Final)
+                      -> Maybe (Doxy.Block (C.CommentRef Final))
+    dropMatchedParams = \case
+      Doxy.ParamList ParamListParam ps ->
+        case filter (not . isMatchedParam) ps of
+          []  -> Nothing
+          ps' -> Just (Doxy.ParamList ParamListParam ps')
+      block -> Just block
 
     processParamDocs :: [Doxy.Param (C.CommentRef Final)]
                      -> [(Maybe Text, Hs.FunctionParameter)]
@@ -167,7 +185,9 @@ mkHaddocksWithArgs HaddockConfig{..} info Args{comment = Just (C.Comment Doxy.Co
           = let paramComment :: HsDoc.Comment
                 paramComment = mempty
                   & #origin   .~ mbName
-                  & #children .~ [convertParam ParamListParam dp']
+                  -- Position 1 is never consulted: a matched name is
+                  -- necessarily non-empty.
+                  & #children .~ [convertParam ParamListParam 1 dp']
             in  (mbName, fp & #comment .~ Just paramComment)
           | otherwise = (mbName, fp)
 
@@ -246,7 +266,7 @@ peelCategoryComment = \case
     -- becomes the title, which the pretty-printer renders on the @{-|@ line
     -- (Haddock's module description).
     overviewComment :: [Doxy.Block (C.CommentRef Final)] -> HsDoc.Comment
-    overviewComment blocks = case concatMap convertBlock blocks of
+    overviewComment blocks = case concatMap convertBlock (coalesceSees blocks) of
       HsDoc.Paragraph inlines : rest
         | all isSimpleInline inlines ->
             mempty
@@ -271,7 +291,7 @@ convertBlock = \case
 
   Doxy.ParamList kind ps ->
     case kind of
-      ParamListParam  -> map (convertParam kind) ps
+      ParamListParam  -> zipWith (convertParam kind) [1 ..] ps
       ParamListRetVal -> concatMap convertRetval ps
 
   Doxy.SimpleSect kind blocks ->
@@ -289,7 +309,7 @@ convertBlock = \case
             [1..] items
 
   Doxy.XRefSect title blocks ->
-    prefixed (title <> ":") (concatMap convertBlock blocks)
+    defItem (Text.dropWhileEnd (== ':') (Text.strip title)) (concatMap convertBlock blocks)
 
   Doxy.Tag _tag children -> concatMap convertBlock children
 
@@ -298,29 +318,32 @@ convertSimpleSect :: SimpleSectKind -> [Doxy.Block (C.CommentRef Final)] -> [HsD
 convertSimpleSect kind blocks =
     let content = concatMap convertBlock blocks
     in  case kind of
-          SSReturn     -> prefixed "Returns:" content
-          SSWarning    -> prefixed "WARNING:" content
-          SSNote       -> prefixed "Note:" content
-          SSSee        -> prefixed "See:" content
+          SSReturn     -> defItem "Returns" content
+          SSWarning    -> defItem "Warning" content
+          SSNote       -> defItem "Note" content
+          SSSee        -> defItem "See also" content
           SSSince      ->
             -- Haddock's @since expects a bare version token; prose like
             -- "This function is available since SDL 3.2.0." renders as
             -- garbage there. Extract the version when present, otherwise
-            -- fall back to an ordinary bold "Since:" line.
+            -- fall back to an ordinary "Since" item.
             case findVersionToken (extractText blocks) of
               Just ver -> [HsDoc.Paragraph [HsDoc.Metadata (HsDoc.Since ver)]]
-              Nothing  -> prefixed "Since:" content
-          SSVersion    -> prefixed "Version:" content
-          SSPre        -> prefixed "Precondition:" content
-          SSPost       -> prefixed "Postcondition:" content
-          SSPar title  -> HsDoc.Paragraph [HsDoc.Bold [HsDoc.TextContent title]] : content
-          SSDeprecated -> prefixed "Deprecated:" content
-          SSRemark     -> prefixed "Remark:" content
-          SSAttention  -> prefixed "ATTENTION:" content
-          SSTodo       -> prefixed "TODO:" content
-          SSInvariant  -> prefixed "Invariant:" content
-          SSAuthor     -> prefixed "Author:" content
-          SSDate       -> prefixed "Date:" content
+              Nothing  -> defItem "Since" content
+          SSVersion    -> defItem "Version" content
+          SSPre        -> defItem "Precondition" content
+          SSPost       -> defItem "Postcondition" content
+          -- The \par title carries its own label ("Thread safety:"); as a
+          -- definition item the label and its content stay in ONE block
+          -- instead of a bold label paragraph orphaned from its text.
+          SSPar title  -> defItem (Text.dropWhileEnd (== ':') (Text.strip title)) content
+          SSDeprecated -> defItem "Deprecated" content
+          SSRemark     -> defItem "Remark" content
+          SSAttention  -> defItem "Attention" content
+          SSTodo       -> defItem "TODO" content
+          SSInvariant  -> defItem "Invariant" content
+          SSAuthor     -> defItem "Author" content
+          SSDate       -> defItem "Date" content
   where
     extractText :: [Doxy.Block (C.CommentRef Final)] -> Text
     extractText = Text.strip . Text.unwords . concatMap go
@@ -355,29 +378,74 @@ isSimpleInline = \case
   HsDoc.Monospace{}   -> True
   HsDoc.Emph{}        -> True
   HsDoc.Bold{}        -> True
+  HsDoc.Identifier{}  -> True
+  HsDoc.Module{}      -> True
+  HsDoc.Link{}        -> True
   _                   -> False
 
--- | Inline a bold label into the first paragraph of some content
-prefixed :: Text -> [HsDoc.CommentBlockContent] -> [HsDoc.CommentBlockContent]
-prefixed label cs = case cs of
-  (HsDoc.Paragraph inlines : rest) ->
-    HsDoc.Paragraph (HsDoc.Bold [HsDoc.TextContent label] : inlines) : rest
-  _ -> HsDoc.Paragraph [HsDoc.Bold [HsDoc.TextContent label]] : cs
+-- | Render a labelled section as one definition-list item: a quiet label
+-- column instead of a bold run per section, and the label can never be
+-- orphaned from its content.
+defItem :: Text -> [HsDoc.CommentBlockContent] -> [HsDoc.CommentBlockContent]
+defItem label cs = [HsDoc.DefinitionList (HsDoc.TextContent label) cs]
 
--- | Convert a documented parameter to a Haddock definition list entry
-convertParam :: ParamListKind -> Doxy.Param (C.CommentRef Final) -> HsDoc.CommentBlockContent
-convertParam _kind p =
-    let paramNameContent = HsDoc.Monospace [HsDoc.TextContent (Text.strip p.paramName)]
-        paramNameAndDir  = HsDoc.Bold (paramNameContent : dirInline p.paramDirection)
-    in  HsDoc.DefinitionList paramNameAndDir (concatMap convertBlock p.paramDesc)
+-- | Merge each run of adjacent @\\sa@ sections into a single section whose
+-- one paragraph comma-joins the references, so a function's see-also block
+-- renders as one definition item instead of a labelled paragraph per
+-- reference. A run member that is not exactly one paragraph disables
+-- coalescing for its run (never observed; \\sa carries a reference list).
+coalesceSees :: [Doxy.Block r] -> [Doxy.Block r]
+coalesceSees = \case
+    [] -> []
+    b : rest
+      | Just first <- seeParagraph b
+      , (mores, rest') <- spanJust seeParagraph rest
+      , not (null mores) ->
+          Doxy.SimpleSect SSSee
+            [Doxy.Paragraph (foldl' joinWithComma first mores)]
+            : coalesceSees rest'
+    b : rest -> b : coalesceSees rest
+  where
+    seeParagraph = \case
+      Doxy.SimpleSect SSSee [Doxy.Paragraph inlines] -> Just inlines
+      _ -> Nothing
+
+    -- The renderer's punctuation rule attaches a leading-punctuation text
+    -- node directly to the preceding element, so the comma lands snug.
+    joinWithComma acc inlines = acc <> (Doxy.Text "," : inlines)
+
+    spanJust :: (a -> Maybe b) -> [a] -> ([b], [a])
+    spanJust f = go
+      where
+        go [] = ([], [])
+        go (x : xs) = case f x of
+          Just y  -> let (ys, zs) = go xs in (y : ys, zs)
+          Nothing -> ([], x : xs)
+
+-- | Convert a documented parameter to a Haddock definition list entry;
+-- the positional index is the term of last resort when the parameter
+-- name is missing (e.g. an upstream doxygen XML quirk).
+convertParam :: ParamListKind -> Int -> Doxy.Param (C.CommentRef Final) -> HsDoc.CommentBlockContent
+convertParam _kind position p =
+    let name = Text.strip p.paramName
+        paramNameContent
+          | Text.null name = HsDoc.TextContent ("arg " <> Text.pack (show position))
+          | otherwise      = HsDoc.Monospace [HsDoc.TextContent name]
+        desc = concatMap convertBlock p.paramDesc
+        -- Direction annotations, when present, lead the description; the
+        -- term itself stays a bare code span.
+        withDir = case dirInline p.paramDirection of
+          []   -> desc
+          dirs -> HsDoc.Paragraph dirs : desc
+    in  HsDoc.DefinitionList paramNameContent withDir
 
 -- | Convert a @\@retval@ entry to a definition list item:
---   @[__@value@__]: description@
+--   @[@value@]: description@
 convertRetval :: Doxy.Param (C.CommentRef Final) -> [HsDoc.CommentBlockContent]
 convertRetval p =
     let code = HsDoc.Monospace [HsDoc.TextContent (Text.strip p.paramName)]
         desc = concatMap convertBlock p.paramDesc
-    in  [HsDoc.DefinitionList (HsDoc.Bold [code]) desc]
+    in  [HsDoc.DefinitionList code desc]
 
 -- | Direction annotation for a parameter (empty list when unspecified)
 dirInline :: Maybe ParamDirection -> [HsDoc.CommentInlineContent]
@@ -410,7 +478,10 @@ convertInline = \case
 
   Doxy.Bold inlines  -> [HsDoc.Bold $ concatMap convertInline inlines]
   Doxy.Emph inlines  -> [HsDoc.Emph $ concatMap convertInline inlines]
-  Doxy.Mono inlines  -> [HsDoc.Monospace $ concatMap convertInline inlines]
+  -- Un-nest monospace inside monospace (a code span holding an unresolved
+  -- cross-reference): nested Monospace prints as doubled @ delimiters,
+  -- which Haddock mis-parses into literal @ characters around the span.
+  Doxy.Mono inlines  -> [HsDoc.Monospace $ flattenMono $ concatMap convertInline inlines]
 
   Doxy.Ref (C.CommentRef c mHsIdent _mKind) _displayText ->
     case mHsIdent of
@@ -420,6 +491,12 @@ convertInline = \case
   Doxy.Anchor idText -> [HsDoc.Anchor idText]
 
   Doxy.Link label url -> [HsDoc.Link (concatMap convertInline label) url]
+
+-- | Splice nested monospace content into its parent code span.
+flattenMono :: [HsDoc.CommentInlineContent] -> [HsDoc.CommentInlineContent]
+flattenMono = concatMap $ \case
+  HsDoc.Monospace inner -> flattenMono inner
+  other                 -> [other]
 
 {-------------------------------------------------------------------------------
   Helpers
