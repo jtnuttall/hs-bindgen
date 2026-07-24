@@ -72,30 +72,61 @@ instance Pretty CommentKind where
         indentation = length commentStart + 1
         -- Separate user-facing metadata (for documentation) from internal metadata.
         -- Only user-facing metadata should trigger Haddock comment syntax.
-        userFacingMetadata = catMaybes [
-            (\n -> "__C declaration:__ @"
-                >< PP.text (escapeMidLine n)
-                >< "@") <$> comment.origin
-          , (\lit -> "__C literal:__ @"
-                >< PP.text (escapeMidLine lit)
-                >< "@") <$> comment.literal
-          , (\d -> "__defined at:__ @"
-                >< d
-                >< "@"
-            ) <$> (prettyDeclOrigin =<< comment.declOrigin)
-          , (\hinfo -> "__exported by:__ @"
-                    >< prettyMainHeaders hinfo
-                    >< "@") <$> (headerInfo =<< comment.declOrigin)
-          ]
-        prettyDeclOrigin :: C.DeclOrigin -> Maybe CtxDoc
-        prettyDeclOrigin = \case
-          C.FromHeader hinfo  -> prettyHashIncludeArgLoc hinfo <$> comment.location
-          C.FromRootDirective -> Just "root directive"
-          C.FromCommandLine   -> Just "command line"
-        headerInfo :: C.DeclOrigin -> Maybe C.HeaderInfo
-        headerInfo = \case
-          C.FromHeader hinfo -> Just hinfo
-          _otherwise         -> Nothing
+        --
+        -- The C-provenance facts render as ONE quiet definition-list row
+        -- instead of a bold-labelled line per fact; "exported by" appears
+        -- only when the exporting header differs from the defining one,
+        -- and a recorded macro literal rides the same row.
+        userFacingMetadata
+          | originShownByTerm = []
+          | otherwise         = catMaybes [combinedProvenance]
+
+        -- A comment whose body already leads with the name-as-term
+        -- definition item ([@name@]: …) states the C name in the term
+        -- itself — the provenance row would only repeat it. This is the
+        -- shape of every matched function-parameter comment.
+        originShownByTerm = case (comment.origin, comment.children) of
+          (Just o, HsDoc.DefinitionList (HsDoc.Monospace [HsDoc.TextContent t]) _ : _) ->
+            t == o
+          _ -> False
+
+        combinedProvenance = case (comment.origin, comment.literal) of
+            (Just n, mLit) -> Just $ assemble
+              ("[C declaration]: @" >< PP.text (escapeMidLine n) >< "@")
+              [literalSuffix lit | Just lit <- [mLit]]
+            (Nothing, Just lit) -> Just $ assemble
+              ("[C literal]: @" >< PP.text (escapeMidLine lit) >< "@")
+              []
+            (Nothing, Nothing) -> Nothing
+          where
+            literalSuffix lit = ", literal @" >< PP.text (escapeMidLine lit) >< "@"
+            assemble core suffixes =
+              foldl (><) core (suffixes ++ definedPart ++ exportedPart)
+
+            -- Where the declaration comes from. A header origin is a source
+            -- location; root directives and command-line macros have none,
+            -- so upstream's names for them ("root directive", "command
+            -- line") stand in its place.
+            definedPart :: [CtxDoc]
+            definedPart = case comment.declOrigin of
+              Just (C.FromHeader hinfo) ->
+                [ ", defined at @" >< prettyHashIncludeArgLoc hinfo loc >< "@"
+                | Just loc <- [comment.location]
+                ]
+              Just C.FromRootDirective -> [", defined by root directive"]
+              Just C.FromCommandLine   -> [", defined on command line"]
+              Nothing                  -> []
+
+            -- Only header origins have an exporting (main) header, and it
+            -- is worth a mention only when it is not the defining header.
+            exportedPart :: [CtxDoc]
+            exportedPart = case comment.declOrigin of
+              Just (C.FromHeader hinfo)
+                | map (.path) (NonEmpty.toList hinfo.mainHeaders)
+                    /= [hinfo.includeArg.path]
+                -> [", exported by @" >< prettyMainHeaders hinfo >< "@"]
+              _otherwise -> []
+
         internalMetadata = catMaybes [
             (\u -> "__unique:__ @"
                >< PP.string u.source
