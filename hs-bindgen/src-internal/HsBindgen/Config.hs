@@ -11,6 +11,9 @@ module HsBindgen.Config (
   , defaultDoxygenConfig
     -- * Template Haskell
   , ConfigTH(..)
+
+    -- * Lithon
+  , FrontendConfig(..)
   )
 where
 

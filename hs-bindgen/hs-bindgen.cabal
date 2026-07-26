@@ -370,14 +370,14 @@ library
   -- is the record of our internal-API footprint.
   reexported-modules:
     , HsBindgen
+    , HsBindgen.Artefact
     , HsBindgen.ArtefactM
-    , HsBindgen.Backend
     , HsBindgen.Backend.Category
     , HsBindgen.Backend.Global
     , HsBindgen.Backend.Hs.AST
+    , HsBindgen.Backend.Hs.CallConv
     , HsBindgen.Backend.Hs.Haddock.Documentation
     , HsBindgen.Backend.Hs.Name
-    , HsBindgen.Backend.Hs.Origin
     , HsBindgen.Backend.HsModule.Render
     , HsBindgen.Backend.Level
     , HsBindgen.Backend.HsModule.Translation
@@ -386,11 +386,9 @@ library
     , HsBindgen.BindingSpec
     , HsBindgen.Config
     , HsBindgen.Config.ClangArgs
-    , HsBindgen.Config.MangleCandidate
-    , HsBindgen.Frontend
+    , HsBindgen.Config.Prelims
     , HsBindgen.Frontend.Analysis.IncludeGraph
     , HsBindgen.Frontend.Pass.Final
-    , HsBindgen.Frontend.Predicate
     , HsBindgen.IR.C
     , HsBindgen.IR.Translation
     , HsBindgen.Language.Haskell

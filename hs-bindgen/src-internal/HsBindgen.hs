@@ -37,6 +37,11 @@ module HsBindgen (
 
     -- * Test infrastructure
   , hsBindgenEMacroLang
+
+    -- * Lithon re-exports
+  , BindgenConfig(..)
+  , getExportTags
+  , resolveExports 
   ) where
 
 import Control.Exception (Exception (..), catch)
