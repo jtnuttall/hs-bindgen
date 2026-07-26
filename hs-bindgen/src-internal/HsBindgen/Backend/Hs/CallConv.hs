@@ -9,6 +9,7 @@ module HsBindgen.Backend.Hs.CallConv (
   , capiModule
   ) where
 
+import Data.Text (Text)
 import GHC.Generics (Generic)
 
 import HsBindgen.Backend.Runtime qualified as Runtime
@@ -21,8 +22,14 @@ import HsBindgen.Language.Haskell qualified as Hs
 
 -- | The 'CallConvUserlandCapi' requires a wrapper on the C side with a
 -- corresponding import.
-newtype CWrapper = CWrapper {
+data CWrapper = CWrapper {
       definition :: String
+
+      -- | Lithon: the wrapped C declaration's name. The foreign import's
+      -- @origName@ is the wrapper's own mangled symbol, so without this
+      -- field a consumer editing wrapper stubs (platform\/version guards)
+      -- can only identify a wrapper by matching its rendered C text.
+    , wraps      :: Text
     }
   deriving (Show, Generic)
 

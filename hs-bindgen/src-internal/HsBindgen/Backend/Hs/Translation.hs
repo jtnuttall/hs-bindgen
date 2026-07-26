@@ -1013,6 +1013,7 @@ addressStubDecs info ty runnerNameSpec _spec = do
         cWrapper :: CWrapper
         cWrapper = CWrapper {
               definition = prettyStub
+            , wraps      = info.id.cName.name.text
             }
 
         foreignImport :: [Hs.Decl l]

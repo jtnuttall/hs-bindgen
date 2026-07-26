@@ -137,6 +137,7 @@ functionDecs safety info origCFun _spec = do
             cWrapper :: CWrapper
             cWrapper = CWrapper {
                   definition = PC.prettyFunDefn cWrapperDecl ""
+                , wraps      = origCName
                 }
 
         foreignImportParams :: [Hs.ForeignImport.FunParam]
