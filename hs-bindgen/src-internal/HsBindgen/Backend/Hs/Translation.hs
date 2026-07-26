@@ -1005,6 +1005,7 @@ addressStubDecs info ty runnerNameSpec _spec = do
         cWrapper = CWrapper {
               definition     = prettyStub
             , hashIncludeArg = getMainHashIncludeArg info
+            , wraps          = info.id.cName.name.text
             }
 
         foreignImport :: [Hs.Decl l]
