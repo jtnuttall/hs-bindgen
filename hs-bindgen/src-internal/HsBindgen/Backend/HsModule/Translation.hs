@@ -12,6 +12,10 @@ module HsBindgen.Backend.HsModule.Translation (
     -- * Translation
   , translateModuleMultiple
   , translateModuleSingle
+
+    -- * lithon-specific reexports
+  , resolveImports
+  , resolvePragmas
   ) where
 
 import Data.Foldable qualified as Foldable
