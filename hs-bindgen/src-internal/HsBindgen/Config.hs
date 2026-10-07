@@ -24,7 +24,14 @@ import HsBindgen.Imports
 import HsBindgen.TraceMsg
 import HsBindgen.Util.Tracer
 
-import Doxygen.Parser (defaultConfig)
+import Doxygen.Parser qualified as Doxy
+
+newtype DoxyConfig = DoxyConfig
+  { config :: Doxy.Config }
+  deriving newtype (Eq, Show)
+
+instance Default DoxyConfig where
+  def = DoxyConfig Doxy.defaultConfig
 
 {-------------------------------------------------------------------------------
   Common
@@ -44,6 +51,7 @@ data Config_ path = Config {
   , programSlicing      :: ProgramSlicing
   , fieldNamingStrategy :: FieldNamingStrategy
   , emptyMacros         :: EmptyMacros
+  , doxygenConfig       :: DoxyConfig
 
   }
   deriving stock (Eq, Show, Generic)
@@ -68,7 +76,7 @@ toBindgenConfig config uniqueId baseModuleName choice =
         , programSlicing      = config.programSlicing
         , fieldNamingStrategy = config.fieldNamingStrategy
         , emptyMacros         = config.emptyMacros
-        , doxygenConfig       = defaultConfig
+        , doxygenConfig       = config.doxygenConfig.config
         }
     , backend = BackendConfig {
           uniqueId       = uniqueId
