@@ -377,7 +377,36 @@ library
     HsBindgen.Internal.Macro.CExpr.Type
     HsBindgen.Internal.Macro.CExpr.Typecheck
 
+  -- LITHON VENDOR PATCH: re-export the internal modules lithon-codegen
+  -- consumes. This is the record of lithon's internal API footprint.
   reexported-modules:
+    , HsBindgen
+    , HsBindgen.Artefact
+    , HsBindgen.ArtefactM
+    , HsBindgen.Backend.Category
+    , HsBindgen.Backend.Global
+    , HsBindgen.Backend.Hs.AST
+    , HsBindgen.Backend.Hs.CallConv
+    , HsBindgen.Backend.Hs.Haddock.Documentation
+    , HsBindgen.Backend.Hs.Name
+    , HsBindgen.Backend.HsModule.Render
+    , HsBindgen.Backend.Level
+    , HsBindgen.Backend.HsModule.Translation
+    , HsBindgen.Backend.SHs.AST
+    , HsBindgen.Backend.SHs.Translation
+    , HsBindgen.BindingSpec
+    , HsBindgen.Config
+    , HsBindgen.Config.ClangArgs
+    , HsBindgen.Config.Prelims
+    , HsBindgen.Frontend.Analysis.IncludeGraph
+    , HsBindgen.Frontend.Pass.Final
+    , HsBindgen.IR.C
+    , HsBindgen.IR.Translation
+    , HsBindgen.Language.Haskell
+    , HsBindgen.NameHint
+    , HsBindgen.TraceMsg
+    , HsBindgen.Util.Tracer
+
   other-extensions:   TemplateHaskellQuotes
 
   -- Internal dependencies
