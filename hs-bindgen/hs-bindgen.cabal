@@ -398,12 +398,15 @@ library
     , HsBindgen.Config
     , HsBindgen.Config.ClangArgs
     , HsBindgen.Config.Prelims
+    , HsBindgen.Frontend.Analysis.DeclIndex
     , HsBindgen.Frontend.Analysis.IncludeGraph
     , HsBindgen.Frontend.Pass.Final
+    , HsBindgen.Frontend.Pass.Select.IsPass
     , HsBindgen.IR.C
     , HsBindgen.IR.Translation
     , HsBindgen.Language.Haskell
     , HsBindgen.NameHint
+    , HsBindgen.TraceMsg
     , HsBindgen.Util.Tracer
 
   other-extensions:   TemplateHaskellQuotes
