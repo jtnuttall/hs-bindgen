@@ -241,6 +241,7 @@ parseConfig = Config
     <*> parseProgramSlicing
     <*> parseFieldNamingStrategy
     <*> parseEmptyMacros
+    <*> pure def
 
 {-------------------------------------------------------------------------------
   Binding specifications
