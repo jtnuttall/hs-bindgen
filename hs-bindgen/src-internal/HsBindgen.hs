@@ -39,6 +39,7 @@ module HsBindgen (
 
     -- * Lithon
   , resolveExports
+  , getExportTags
   ) where
 
 import Control.Exception (Exception (..), catch)
