@@ -95,6 +95,11 @@ data ExportItem =
   | ExportName Text
     -- | Export a pattern synonym: @pattern PatName@
   | ExportPattern Text
+    -- | Re-export a whole imported module: @module M@
+    --
+    -- Lithon: never produced by 'resolveDeclExports' (nor by
+    -- @resolveExports@); used by lithon's alias layer.
+  | ExportModule Hs.ModuleName
 
 {-------------------------------------------------------------------------------
   HsModule
