@@ -1,4 +1,5 @@
 -- | Configuration of @hs-bindgen@.
+{-# LANGUAGE NamedFieldPuns #-}
 module HsBindgen.Config (
     Config_(..)
   , UniqueId(..)
@@ -10,6 +11,10 @@ module HsBindgen.Config (
   , toBindgenConfig
     -- * Template Haskell
   , ConfigTH(..)
+
+    -- * Lithon
+  , DoxyConfig(..)
+  , setDoxyAliases
   )
 where
 
@@ -32,6 +37,9 @@ newtype DoxyConfig = DoxyConfig
 
 instance Default DoxyConfig where
   def = DoxyConfig Doxy.defaultConfig
+
+setDoxyAliases :: [(Text, Text)] -> DoxyConfig -> DoxyConfig
+setDoxyAliases aliases (DoxyConfig config) = DoxyConfig (config{Doxy.aliases})
 
 {-------------------------------------------------------------------------------
   Common
